@@ -1,5 +1,6 @@
 import java.util.Random;
 import java.util.Scanner;
+import java.util.ArrayList;
 
 public class Main {
     private static final int boardSize = 7;
@@ -11,55 +12,45 @@ public class Main {
     private static final char[][] field = new char[boardSize][boardSize];
     private static final Scanner sc = new Scanner(System.in);
 
-    public static void main(String[] args) {
-        inputNickname();
+    private static ArrayList<Player> players = new ArrayList<>();
+    private static String nickname;
 
+    public static void main(String[] args) {
         boolean continueGame = true;
         while (continueGame) {
             game();
-            continueGame = continueGamePrompt(); // Запрашиваем продолжение
+            continueGame = playAgain();
         }
+        displayAllStatistics();
         System.out.println("Thank you for playing! Goodbye.");
     }
+
     static void game() {
-        boolean playAgain = true;
+        inputNickname();
 
-        while (playAgain) {
-            cleanAll();
-            createField();
-            hideAllShips();
-            outputHiddenField();
+        cleanAll();
+        initializedField();
+        hideAllShips();
+        outputHiddenField();
 
-            int attempts = 30;
-            boolean gameWon = startGame(attempts);
+        int attempts = 30;
+        boolean gameWon = startGame(attempts);
 
-            if (gameWon) {
-                System.out.println("CONGRATULATIONS! \nYou won the game!");
-                System.out.println(" ");
-            }
-            else {
-                System.out.println("You LOST!\nYou wasted all attempts.");
-            }
-
-            playAgain = continueGamePrompt();  // Спрашиваем, хочет ли игрок сыграть снова
+        if (gameWon) {
+            System.out.println("CONGRATULATIONS! \nYou won the game!");
+            updateStatistics(nickname, true);
+        } else {
+            System.out.println("You LOST!\nYou wasted all attempts.");
+            updateStatistics(nickname, false);
         }
-
-        System.out.println("Thank you for playing! Goodbye.");
-    }
-    static void inputNickname() {
-        System.out.println("Hi!" +
-                "\n" + "It is a Sea Battle game." +
-                "\n" + "Enter your nickname: ");
-
-        String nickname = sc.nextLine();
-        System.out.println("Welcome, " + nickname + "! Game is started!");
+        displayStatisticsOfShots();
     }
 
     static void cleanAll() {
         System.out.println("\033[H\033[J");
     }
 
-    static int createField() {
+    static int initializedField() {
         for (int i = 0; i < boardSize; i++) {
             for (int j = 0; j < boardSize; j++) {
                 field[i][j] = emptyField;
@@ -98,8 +89,7 @@ public class Main {
                 for (int i = 0; i < shipSize; i++) {
                     if (horizontal) {
                         field[row][col + i] = ship;
-                    }
-                    else {
+                    } else {
                         field[row + i][col] = ship;
                     }
                 }
@@ -141,6 +131,7 @@ public class Main {
     }
 
     static void outputHiddenField() {
+        cleanAll();
         System.out.print("  ");
         for (int i = 1; i <= boardSize; i++) {
             System.out.print(i + "  ");
@@ -178,7 +169,8 @@ public class Main {
 
             if (field[row][column] == ship) {
                 System.out.println("Hit!");
-                field[row][column] = hit;  // Помечаем как попадание
+                field[row][column] = hit;
+                updateShotStatistics();
 
                 if (isShipSunk(row, column)) {
                     System.out.println("You've sunk a ship! ⛵");
@@ -189,13 +181,11 @@ public class Main {
                 if (checkAllShipsSunk()) {
                     return true;
                 }
-            }
-            else if (field[row][column] == emptyField) {
+            } else if (field[row][column] == emptyField) {
                 System.out.println("Missed!");
-                field[row][column] = missed; // Помечаем как пропуск
+                field[row][column] = missed;
                 outputHiddenField();
-            }
-            else {
+            } else {
                 System.out.println("You already tried this coordinates. Try again.");
                 outputHiddenField();
             }
@@ -204,11 +194,18 @@ public class Main {
         return false;
     }
 
-    public static boolean isShipSunk(int row, int col) {
+    static void updateShotStatistics() {
+        Player currentPlayer = getPlayerByName(nickname);
+        if (currentPlayer != null) {
+            currentPlayer.incrementHits();
+        }
+    }
+
+    static boolean isShipSunk(int row, int col) {
         boolean horizontal = (col > 0 && field[row][col] == ship) || (col < boardSize - 1 && field[row][col + 1] == ship);
         if (horizontal) {
 
-            // Проверка всей горизонтальной линии корабля
+
             int startCol = col;
             while (startCol >= 0 && (field[row][startCol] == hit || field[row][startCol] == ship)) {
                 if (field[row][startCol] == ship) {
@@ -225,7 +222,6 @@ public class Main {
             }
         }
         else {
-            // Проверка всей вертикальной линии корабля
             int startRow = row;
             while (startRow >= 0 && (field[startRow][col] == hit || field[startRow][col] == ship)) {
                 if (field[startRow][col] == ship) {
@@ -244,33 +240,33 @@ public class Main {
         return true;
     }
 
-    public static void markSunkShip(int row, int col) {
+    static void markSunkShip(int row, int col) {
         boolean horizontal = (col > 0 && field[row][col - 1] == hit) ||
                 (col < boardSize - 1 && field[row][col + 1] == hit);
 
         if (horizontal) {
-            // Проверка и пометка всей горизонтальной линии потопленного корабля
+
             int startCol = col;
-            // Идем влево
+
             while (startCol >= 0 && (field[row][startCol] == hit || field[row][startCol] == ship)) {
                 field[row][startCol] = sunkShip;
                 startCol--;
             }
-            // Идем вправо
+
             startCol = col + 1;
             while (startCol < boardSize && (field[row][startCol] == hit || field[row][startCol] == ship)) {
                 field[row][startCol] = sunkShip;
                 startCol++;
             }
         } else {
-            // Проверка и пометка всей вертикальной линии потопленного корабля
+
             int startRow = row;
-            // Идем вверх
+
             while (startRow >= 0 && (field[startRow][col] == hit || field[startRow][col] == ship)) {
                 field[startRow][col] = sunkShip;
                 startRow--;
             }
-            // Идем вниз
+
             startRow = row + 1;
             while (startRow < boardSize && (field[startRow][col] == hit || field[startRow][col] == ship)) {
                 field[startRow][col] = sunkShip;
@@ -279,7 +275,7 @@ public class Main {
         }
     }
 
-    public static boolean checkAllShipsSunk() {
+    static boolean checkAllShipsSunk() {
         for (int i = 0; i < boardSize; i++) {
             for (int j = 0; j < boardSize; j++) {
                 if (field[i][j] == ship) {
@@ -290,12 +286,103 @@ public class Main {
         return true;
     }
 
-    static boolean continueGamePrompt() {
-        sc.nextLine(); // Очищаем буфер после nextInt
+    static boolean playAgain() {
+        sc.nextLine();
         System.out.println("Would you like to play again? (yes/no)");
 
         String answer = sc.nextLine().trim().toLowerCase();
         return answer.equals("yes");
+    }
+
+    public static class Player {
+            private String name;
+            private int wins;
+            private int losses;
+            private int hits;
+
+            public Player(String name) {
+                this.name = name;
+                this.wins = 0;
+                this.losses = 0;
+                this.hits = 0;
+            }
+            public String getName() {
+                return name;
+            }
+
+            public int getWins() {
+                return wins;
+            }
+
+            public int getLosses() {
+                return losses;
+            }
+
+            public int getHits() {
+                return hits;
+            }
+
+            public void incrementWins() {
+                wins++;
+            }
+
+            public void incrementLosses() {
+                losses++;
+            }
+
+            public void incrementHits() {
+                hits++;
+            }
+        }
+    static void inputNickname() {
+        System.out.println("Hi!" +
+                "\n" + "It is a Sea Battle game." +
+                "\n" + "Enter your nickname: ");
+
+        nickname = sc.nextLine();
+        System.out.println("Welcome, " + nickname + "! Let's start the game!");
+
+        if (getPlayerByName(nickname) == null) {
+            players.add(new Player(nickname));
+        }
+    }
+
+    static void updateStatistics(String player, boolean won) {
+        Player currentPlayer = getPlayerByName(player);
+        if (currentPlayer != null) {
+            if (won) {
+                currentPlayer.incrementWins();
+            } else {
+                currentPlayer.incrementLosses();
+            }
+        }
+    }
+    static void displayStatisticsOfShots() {
+        Player currentPlayer = getPlayerByName(nickname);
+        if (currentPlayer != null) {
+            System.out.println(currentPlayer.getName() + " - Hits: " + currentPlayer.getHits());
+        }
+        System.out.println();
+    }
+    static void displayAllStatistics() {
+        System.out.println("\nAll Players Statistics:");
+        if (players.isEmpty()) {
+            System.out.println("No players have played yet.");
+            return;
+        }
+        for (Player player : players) {
+            System.out.println(player.getName() + " - Wins: " + player.getWins() + ", Losses: " + player.getLosses());
+        }
+        System.out.println();
+    }
+
+    static Player getPlayerByName(String name) {
+        for (Player player : players) {
+            if (player.getName().equals(name)) {
+                return player;
+            }
+        }
+        return null;
     }
 
 }
