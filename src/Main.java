@@ -22,7 +22,8 @@ public class Main {
             continueGame = playAgain();
         }
         displayAllStatistics();
-        System.out.println("Thank you for playing! Goodbye.");
+        System.out.println("Thank you for playing! " +
+                "\n Goodbye.");
     }
 
     static void game() {
